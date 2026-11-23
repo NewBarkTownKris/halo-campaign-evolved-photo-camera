@@ -1,6 +1,8 @@
 # Install on Linux with Steam and Proton
 
-This release was play-tested on Linux/Proton with Halo Steam build `24670874`. Chief can appear with duplicate arm models when the detached camera shows him.
+This release was play-tested on Linux/Proton with Halo Steam build `24670874`.
+
+**Shots of Master Chief require the Perspective (third-person) skull.** Enable **Perspective** on the **Select Skulls** screen before starting the mission, then press **F8** during gameplay. Entering photo mode from first person can show duplicate arms and weapons on Chief.
 
 1. Launch Halo once to create its Proton profile, then close the game. Extract the complete Linux release ZIP.
 2. For the F9 shutter, use an X11 or XWayland game window. Install Python 3, Pillow, ImageMagick (the `import` command), `xdotool` and `xprop` in the environment Steam uses to start the game. On Debian or Ubuntu the packages are `python3 python3-pil imagemagick xdotool x11-utils`.

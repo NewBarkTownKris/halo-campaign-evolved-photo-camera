@@ -7,10 +7,12 @@ local strengths = {1, 2, 4, 8}
 local sensorWidth = 36 -- mm, the horizontal gate used by the camera
 local maxDistance = 1000000 -- cm
 local traceInterval = 0.125 -- real seconds
+local defaults = {enabled = false, distance = 300, aperture = 10, strength = 1, mode = "Manual"}
 
 local function settings(session)
     if not session.focus then
-        session.focus = {enabled = false, distance = 300, aperture = 10, strength = 1, mode = "Manual"}
+        session.focus = {}
+        for key, value in pairs(defaults) do session.focus[key] = value end
     end
     return session.focus
 end
@@ -23,6 +25,14 @@ local function focusDistance(session, distance)
     -- A physical lens cannot form an image of a subject inside its focal length.
     local minimum = math.max(2, focalLength(session) * 1.05 / 10)
     return math.max(minimum, math.min(maxDistance, distance))
+end
+
+-- Values for the Studio are readable before the first focus command. Opening
+-- the menu must leave the game camera's depth of field alone.
+function focus.values(session)
+    local s = session.focus or defaults
+    return {enabled = s.enabled, mode = s.mode, distance = focusDistance(session, s.distance),
+        fine = s.fine == true, aperture = apertures[s.aperture], strength = strengths[s.strength]}
 end
 
 function focus.status(session)
@@ -150,8 +160,8 @@ function focus.setStrength(session, index)
     return apply(session, {strength = index})
 end
 
-function focus.strength(session)
-    return focus.setStrength(session, settings(session).strength % #strengths + 1)
+function focus.strength(session, direction)
+    return focus.setStrength(session, (settings(session).strength - 1 + (direction or 1)) % #strengths + 1)
 end
 
 local function backingBody(session)
@@ -303,6 +313,26 @@ function focus.toggleTracking(session)
     local s = settings(session)
     if s.enabled and s.mode == "AF-C" then return apply(session, {mode = "AF lock"}) end
     return apply(session, {enabled = true, mode = "AF-C", nextTrace = 0})
+end
+
+function focus.setMode(session, mode)
+    if mode == "AF lock" then return focus.autofocus(session) end
+    assert(mode == "Manual" or mode == "AF-C", "Unknown focus mode")
+    return apply(session, {enabled = true, mode = mode, nextTrace = 0})
+end
+
+-- Restore only the physical dials. Each photo session starts with its own
+-- focus mode, distance and baseline on the new camera component.
+function focus.restoreDials(session, aperture, strength, fine)
+    local changes = {}
+    for index, value in ipairs(apertures) do
+        if value == aperture then changes.aperture = index end
+    end
+    for index, value in ipairs(strengths) do
+        if value == strength then changes.strength = index end
+    end
+    if type(fine) == "boolean" then changes.fine = fine end
+    if next(changes) then return apply(session, changes) end
 end
 
 -- A short exposure and every pose of a timed exposure retain the same

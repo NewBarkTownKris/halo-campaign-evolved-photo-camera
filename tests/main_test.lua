@@ -33,9 +33,9 @@ local finder = {}
 function finder.open() widget = {visible = false}; return widget end
 function finder.visible(f, visible) f.visible = visible; return true end
 function finder.close(f) f.closed = true; return true end
-function finder.update(f, w, h, crop, text, grid)
+function finder.update(f, w, h, crop, text, grid, menu)
     assert(w == width and h == height)
-    f.crop, f.text, f.grid = crop, text, grid
+    f.crop, f.text, f.grid, f.menu = crop, text, grid, menu
     return true
 end
 local shutter = {}
@@ -54,7 +54,28 @@ function shutter.poll(job)
     return "pending"
 end
 function shutter.cancel(job) assert(job == activeJob); activeJob = nil; cancels = cancels + 1 end
-local modules = {["session.lua"] = session, ["finder.lua"] = finder, ["shutter.lua"] = shutter}
+local linear, hdrJob = {}, nil
+function linear.reap() end
+function linear.begin(active, crop, w, h, path)
+    assert(not hdrJob and not activeJob and active == s and path == "photos/shot.png")
+    assert(not widget.visible and width == w and height == h and crop.x == widget.crop.x)
+    if flags.rejectEXR then return nil, "Working gamut unavailable" end
+    hdrJob = {}
+    return hdrJob
+end
+function linear.poll(job)
+    assert(job == hdrJob and not widget.visible)
+    if flags.exrSaved then hdrJob = nil; return "saved", "photos/shot.exr" end
+    return "pending"
+end
+function linear.cancel(job) assert(hdrJob == job); hdrJob = nil end
+local studio = dofile(scriptRoot .. "studio.lua")
+local openStudio = studio.open
+function studio.open(active, optics, focus, changePose, _, chromatic)
+    openStudio(active, optics, focus, changePose, false, chromatic)
+end
+local modules = {["session.lua"] = session, ["finder.lua"] = finder, ["shutter.lua"] = shutter,
+    ["linear.lua"] = linear, ["studio.lua"] = studio}
 local traceLibrary = {IsValid = function() return true end}
 function traceLibrary:LineTraceSingle(context, _, _, _, _, _, _, hit)
     assert(context == camera)
@@ -175,4 +196,45 @@ frame()
 assert(widget.visible and widget.text:match("PNG saved") and closed == 3)
 press("F8")
 assert(closed == 4 and widget.closed and stopped[event])
+
+-- Studio can open with the finder off. Held movement and aim are consumed by the menu.
+press("F8"); press("H"); press("F4")
+assert(widget.visible and widget.menu and widget.menu.selected == 1)
+held.W, held.Right = true, true
+local menuMoves = moves
+frame(); frame()
+assert(s.captureEXR and moves == menuMoves)
+held.W, held.Right = false, false
+frame()
+held.Gamepad_DPad_Down = true
+frame()
+assert(widget.menu.selected == 2)
+held.Gamepad_DPad_Down = false
+frame()
+press("F9"); frame(); frame(); frame()
+assert(hdrJob and not widget.visible and not activeJob)
+flags.exrSaved = true
+frame()
+assert(widget.visible and widget.menu and not hdrJob and s.status == "PNG + EXR saved")
+held.Gamepad_LeftThumbstick = true
+frame()
+assert(not s.studio.visible and not widget.visible)
+held.Gamepad_LeftThumbstick = false
+frame()
+press("F3"); frame(); frame(); frame()
+assert(hdrJob)
+press("F8"); frame()
+assert(not hdrJob and closed == 5)
+
+-- Preserve the first file and restore the overlay when the HDR stage fails.
+flags.exrSaved, flags.rejectEXR = false, true
+press("F8"); press("F3"); frame(); frame(); frame()
+assert(widget.visible and not s.pending and s.status:find("PNG saved") and s.status:find("Working gamut"))
+flags.rejectEXR = false
+press("F3"); frame(); frame(); frame()
+assert(hdrJob); width = width - 1; frame()
+assert(not hdrJob and widget.visible and s.status:find("Viewport changed"))
+press("F3"); frame(); frame(); frame()
+assert(hdrJob); flags.travel = true; frame()
+assert(closed == 6 and not hdrJob and widget.closed)
 print("Main entry point tests passed")

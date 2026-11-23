@@ -18,7 +18,7 @@ function methods:SetText(value) self.text = value; self.writes = (self.writes or
 function methods:SetDesiredSizeInViewport(s) self.desired = s end
 function methods:SetPositionInViewport(p, removeDpi) assert(p.X == 0 and p.Y == 0 and removeDpi == false) end
 for _, name in ipairs({"SetClipping", "SetPadding", "SetContent", "SetAutoSize", "SetAlignment",
-                        "SetColorAndOpacity", "SetAutoWrapText", "SetFont", "SetWidthOverride"}) do
+                        "SetColorAndOpacity", "SetAutoWrapText", "SetFont", "SetWidthOverride", "SetJustification"}) do
     methods[name] = function() end
 end
 
@@ -89,6 +89,26 @@ assert(finder.visible(handle, true) and host.visibility == 3)
 assert(finder.visible(handle, false) and host.visibility == 2)
 assert(finder.update(handle, 1921, 1081, optics.crop(1921, 1081), "Saved PNG", false))
 assert(host.visibility == 2 and handle.grid.visibility == 2 and handle.label.text == "Saved PNG")
+-- A 720p viewport at high UI scale fits only part of the menu. The last
+-- row must stay reachable, and hiding the host for a photo must survive redraws.
+local rows = {}
+for i=1,12 do rows[i] = {label="Setting " .. i, value=tostring(i)} end
+viewport.dpi = 2
+local menu = {selected=12, rows=rows}
+assert(finder.update(handle, 1280, 720, optics.crop(1280,720), "Photo", true, menu))
+local panel = handle.studio
+assert(panel.panel.visibility == 3 and handle.readout.visibility == 1 and host.visibility == 2)
+assert(panel.capacity < #rows and panel.rows[panel.capacity].label.text == "Setting 12")
+assert(panel.slot.pos.Y + panel.slot.size.Y <= 720 / viewport.dpi)
+assert(panel.rows[panel.capacity+1].label.visibility == 1 and panel.title.text:match("12 / 12"))
+local writes = panel.rows[1].label.writes
+assert(finder.update(handle, 1280, 720, optics.crop(1280,720), "Photo", true, menu))
+assert(panel.rows[1].label.writes == writes)
+menu.selected = 1
+assert(finder.update(handle, 1280, 720, optics.crop(1280,720), "Photo", true, menu))
+assert(panel.rows[1].label.text == "Setting 1" and panel.highlightSlot.pos.Y == panel.header)
+assert(finder.update(handle, 1280, 720, optics.crop(1280,720), "Photo", true))
+assert(panel.panel.visibility == 1 and handle.readout.visibility == 3 and host.visibility == 2)
 viewport.dpi = 0
 assert(not finder.update(handle, 1921, 1081, optics.crop(1921, 1081), "Miss", false))
 assert(finder.close(handle) and not host.attached)

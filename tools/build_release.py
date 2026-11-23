@@ -9,23 +9,26 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.0"
+VERSION = "0.2.0-dev.1"
 MOD = "mod/HaloPhotoMode/"
 PLATFORMS = ("windows", "linux-proton")
-SCRIPTS = ("finder", "focus", "gamepad", "main", "mouselook", "optics", "session", "shutter")
+SCRIPTS = ("chromatic", "finder", "focus", "gamepad", "linear", "main", "mouselook", "optics", "session", "shutter", "studio")
 
 
 def members(platform):
     files = {path: path for path in (
         "README.md", "IMPLEMENTATION_PLAN.md", MOD + "LICENSE", MOD + "enabled.txt",
         "tools/install_runtime.py", "tools/doctor.py", "tools/capture.py",
+        "tools/develop_photos.py", "requirements-develop.txt",
         *(MOD + "Scripts/" + name + ".lua" for name in SCRIPTS),
     )}
     files["LICENSE"] = MOD + "LICENSE"
     if platform == "windows":
+        files["Develop-Photos.cmd"] = "Develop-Photos.cmd"
         for name in ("Install-Windows.cmd", "Start-Windows-Capture.cmd", "capture_windows.py", "WINDOWS.md"):
             files[name] = "packaging/windows/" + name
     else:
+        files["Develop-Photos.sh"] = "Develop-Photos.sh"
         for name in ("install.py", "INSTALL-Linux.md"):
             relative = "packaging/linux/" + name
             files[relative] = relative
@@ -45,7 +48,7 @@ def build_archive(path, platform):
                 data = data.replace(b"\n", b"\r\n")
             entry = ZipInfo(dest, date_time=(1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
-            entry.external_attr = 0o100644 << 16
+            entry.external_attr = (0o100755 if dest.endswith(".sh") else 0o100644) << 16
             archive.writestr(entry, data, compress_type=ZIP_DEFLATED, compresslevel=9)
 
 

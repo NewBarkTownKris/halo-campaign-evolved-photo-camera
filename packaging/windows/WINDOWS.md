@@ -1,6 +1,8 @@
 # Halo Photo Mode for Windows
 
-Gameplay has only been tested on Linux through Proton. Native Windows camera controls and F9 capture are unverified. Chief can show duplicate arm models when the detached camera faces him.
+Gameplay has only been tested on Linux through Proton. Native Windows camera controls and F9 capture are unverified.
+
+**Shots of Master Chief require the Perspective (third-person) skull.** Enable **Perspective** on the **Select Skulls** screen before starting the mission, then press **F8** during gameplay. Entering photo mode from first person can show duplicate arms and weapons on Chief.
 
 ## Install
 
